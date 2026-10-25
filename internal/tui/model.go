@@ -101,8 +101,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.render()
 			opts := m.conv.Options
 			gen := m.conv.Generator
+			history := append([]inference.Message(nil), m.conv.History...)
 			return m, tea.Batch(m.spinner.Tick, func() tea.Msg {
-				text, err := gen.Generate([]inference.Message{{Role: "user", Content: q}}, opts)
+				text, err := gen.Generate(history, opts)
 				if err == nil {
 					m.conv.History = append(m.conv.History, inference.Message{Role: "assistant", Content: strings.TrimSpace(text)})
 				} else {

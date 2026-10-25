@@ -32,6 +32,32 @@ def format_conversation(messages):
     parts.append("Assistant:")
     return "".join(parts)
 
+def select_turns(messages):
+    """What the model actually sees.
+
+    1.1 (digit32k) models were fine-tuned on two-turn conversations: they see the
+    system line, the last two answered exchanges and the current question.
+    1.0 lineages are single-turn: only the latest user message is sent.
+    """
+    if STATE.get("lineage") != "digit32k":
+        users = [m for m in messages if (m.get("role") or "").lower() == "user"]
+        return users[-1:] if users else list(messages)
+    system, rest = None, []
+    for m in messages:
+        if (m.get("role") or "").lower() == "system" and system is None:
+            system = m
+        else:
+            rest.append(m)
+    tail, assistants = [], 0
+    for m in reversed(rest):
+        if (m.get("role") or "").lower() == "assistant":
+            assistants += 1
+        tail.append(m)
+        if assistants >= 2:
+            break
+    tail.reverse()
+    return ([system] if system else []) + tail
+
 def with_system(messages):
     if STATE.get("lineage") != "digit32k":
         return messages
@@ -145,7 +171,7 @@ def do_load(model_dir: str, device: str):
 def do_generate(messages, max_tokens, temperature, top_k, rep_penalty):
     if STATE["model"] is None:
         raise RuntimeError("no model loaded (send load first)")
-    messages = with_system(list(messages or []))
+    messages = with_system(select_turns(list(messages or [])))
     kind = STATE["kind"]
     if not max_tokens:
         max_tokens = generation_defaults()[0]

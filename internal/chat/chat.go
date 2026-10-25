@@ -26,7 +26,9 @@ func (c *Conversation) Send(question string) (string, error) {
 		return "", fmt.Errorf("empty question")
 	}
 	c.History = append(c.History, inference.Message{Role: "user", Content: q})
-	answer, err := c.Generator.Generate([]inference.Message{{Role: "user", Content: q}}, c.Options)
+
+	messages := append([]inference.Message(nil), c.History...)
+	answer, err := c.Generator.Generate(messages, c.Options)
 	if err != nil {
 		c.History = c.History[:len(c.History)-1]
 		return "", err

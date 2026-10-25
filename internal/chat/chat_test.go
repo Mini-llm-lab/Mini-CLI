@@ -17,7 +17,7 @@ func (r *recordingGenerator) Generate(messages []inference.Message, _ inference.
 
 func (r *recordingGenerator) Close() error { return nil }
 
-func TestSendSendsOnlyCurrentQuestion(t *testing.T) {
+func TestSendSendsTranscript(t *testing.T) {
 	g := &recordingGenerator{}
 	c := New(g, inference.DefaultOptions())
 	for _, q := range []string{"first", "second"} {
@@ -28,8 +28,18 @@ func TestSendSendsOnlyCurrentQuestion(t *testing.T) {
 	if len(g.calls) != 2 {
 		t.Fatalf("expected 2 generate calls, got %d", len(g.calls))
 	}
-	if len(g.calls[1]) != 1 || g.calls[1][0].Content != "second" {
-		t.Fatalf("second call must carry only the current question, got %+v", g.calls[1])
+	want := []inference.Message{
+		{Role: "user", Content: "first"},
+		{Role: "assistant", Content: "answer"},
+		{Role: "user", Content: "second"},
+	}
+	if len(g.calls[1]) != len(want) {
+		t.Fatalf("second call must carry the transcript (the engine prunes it), got %+v", g.calls[1])
+	}
+	for i, m := range want {
+		if g.calls[1][i].Role != m.Role || g.calls[1][i].Content != m.Content {
+			t.Fatalf("message %d: got %+v, want %+v", i, g.calls[1][i], m)
+		}
 	}
 	if len(c.History) != 4 || c.History[2].Content != "second" || c.History[3].Content != "answer" {
 		t.Fatalf("history should stay a transcript, got %+v", c.History)
